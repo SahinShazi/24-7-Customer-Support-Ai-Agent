@@ -1,0 +1,204 @@
+{
+  "name": "Tech Shop Customer Support Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      },
+      "webhookId": "techshop-telegram-webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "You are a smart customer support assistant for \"Tech Shop\".\n\nRules:\n\nযখন কোনো কাস্টমার প্রথম মেসেজ পাঠায় (যেমন হ্যালো, হাই, আস্সালামু আলাইকুম), এভাবে রিপ্লাই করো:\n\n\"টেক শপে আপনাকে স্বাগতম! 🛍️\nআমি কীভাবে আপনাকে সাহায্য করতে পারি?\n- 🛒 অর্ডার করতে চাই\n- ℹ️ সাধারণ প্রশ্ন / তথ্য\n- 📦 অর্ডার বা স্টক চেক করতে চাই\"\n\n(টোন যেন টেক প্রোডাক্ট শপের মতো হয়, বন্ধুত্বপূর্ণ ও সহজ ভাষায়)\n\nকাস্টমার যদি অর্ডার করতে চায়: ধাপে ধাপে জিজ্ঞেস করো: নাম, পণ্যের নাম, পরিমাণ, ঠিকানা। অর্ডার নেওয়ার আগে Get Inventory টুল দিয়ে স্টক চেক করো। পণ্য পাওয়া গেলে বলো: \"আপনার [পণ্যের নাম] (x পিস) অর্ডার কনফার্ম হয়েছে ✅\"। পণ্য না থাকলে বলো: \"দুঃখিত, [পণ্যের নাম] এই মুহূর্তে স্টকে নেই ❌। পাওয়া যাচ্ছে: [লিস্ট দাও]\"। শুধু কনফার্ম অর্ডারই Post Orders টুল দিয়ে সেভ করো। Orders এ সবসময় রাখো — Status: Confirmed অথবা Rejected। Description: \"অর্ডার গৃহীত হয়েছে (পণ্য স্টকে আছে)\" অথবা \"অর্ডার বাতিল (স্টকে নেই)\"।\n\nকাস্টমার যদি সাধারণ প্রশ্ন করে: Get FAQ টুল দিয়ে উত্তর খোঁজো। সংক্ষেপে ও সহজ ভাষায় উত্তর দাও (ডেলিভারি সময়, পেমেন্ট পদ্ধতি, ওয়ারেন্টি, রিটার্ন পলিসি ইত্যাদি)।\n\nকাস্টমার যদি অর্ডার বা স্টক চেক করতে চায়: পণ্যের নাম বা অর্ডার আইডি জিজ্ঞেস করো। Orders বা Inventory দেখো। অর্ডার চেক হলে স্ট্যাটাস জানাও (Confirmed / Rejected / Cancelled / Delivered)। স্টক চেক হলে ওই পণ্যের পরিমাণ জানাও। সব পণ্যের লিস্ট চাইলে পাওয়া যাচ্ছে এমন সব পণ্য ও পরিমাণ দাও।\n\nকাস্টমার যদি অর্ডার বাতিল করতে চায়: বিনয়ের সাথে বলো: \"দুঃখিত 🙏 আমি সরাসরি অর্ডার বাতিল করতে পারব না। অনুগ্রহ করে আমাদের সাথে সরাসরি যোগাযোগ করুন। 📞 কল করুন: ০১৮৩৮০৪০০৫১\"\n\nসবসময় WhatsApp চ্যাটের মতো ছোট ও সহজ ভাষায় রিপ্লাই করো। বোল্ড বা লম্বা প্যারাগ্রাফ ব্যবহার করবে না। শুধু গুরুত্বপূর্ণ শব্দে স্টার দাও। টোন যেন বন্ধুত্বপূর্ণ, বিনয়ী ও টেক শপের স্টাইলে হয়।\n\nকাস্টমারের Telegram Chat ID: {{ $('Telegram Trigger').item.json.message.chat.id }}\nকাস্টমারের নাম: {{ $('Telegram Trigger').item.json.message.from.first_name }}"
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [300, 200]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-flash",
+        "options": {}
+      },
+      "id": "gemini-model",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [150, 450],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "id": "simple-memory",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [320, 450]
+    },
+    {
+      "parameters": {
+        "description": "টেক শপের সকল পণ্যের তালিকা ও স্টক চেক করতে এই টুল ব্যবহার করো। অর্ডার নেওয়ার আগে অবশ্যই এই টুল দিয়ে স্টক যাচাই করো।",
+        "jsCode": "return [\n  { json: { \"Product Name\": \"Redmi Buds 6\", \"Price\": 1250, \"Stock\": 15, \"Description\": \"ওয়্যারলেস ইয়ারবাড, ৩০ ঘণ্টা ব্যাটারি, নয়েজ ক্যান্সেলেশন\", \"Category\": \"Earbuds\" } },\n  { json: { \"Product Name\": \"Havit HV-H2002d\", \"Price\": 850, \"Stock\": 10, \"Description\": \"গেমিং হেডফোন, LED লাইট সহ, সারাউন্ড সাউন্ড\", \"Category\": \"Headphone\" } },\n  { json: { \"Product Name\": \"Remax RB-M10\", \"Price\": 950, \"Stock\": 8, \"Description\": \"পোর্টেবল ব্লুটুথ স্পিকার, ওয়াটারপ্রুফ\", \"Category\": \"Speaker\" } },\n  { json: { \"Product Name\": \"Anker 20000mAh\", \"Price\": 1800, \"Stock\": 12, \"Description\": \"ফাস্ট চার্জিং পাওয়ার ব্যাংক, দুটো পোর্ট\", \"Category\": \"Power Bank\" } },\n  { json: { \"Product Name\": \"TP-Link TL-WR840N\", \"Price\": 1350, \"Stock\": 6, \"Description\": \"৩০০Mbps WiFi রাউটার, ২টি অ্যান্টেনা\", \"Category\": \"Router\" } },\n  { json: { \"Product Name\": \"Dareu A84 Pro\", \"Price\": 3800, \"Stock\": 5, \"Description\": \"মেকানিক্যাল গেমিং কীবোর্ড, RGB ব্যাকলাইট\", \"Category\": \"Keyboard\" } },\n  { json: { \"Product Name\": \"Logitech M100\", \"Price\": 650, \"Stock\": 20, \"Description\": \"ওয়্যারড অপটিক্যাল মাউস, প্লাগ অ্যান্ড প্লে\", \"Category\": \"Mouse\" } },\n  { json: { \"Product Name\": \"Ugreen USB Hub\", \"Price\": 1100, \"Stock\": 9, \"Description\": \"৪ পোর্ট USB 3.0 হাব, হাই স্পিড ট্রান্সফার\", \"Category\": \"Accessories\" } }\n];"
+      },
+      "id": "get-inventory",
+      "name": "Get Inventory",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [490, 450]
+    },
+    {
+      "parameters": {
+        "description": "কাস্টমারের সাধারণ প্রশ্নের উত্তর দিতে এই টুল ব্যবহার করো। ডেলিভারি, পেমেন্ট, ওয়ারেন্টি, রিটার্ন পলিসি সংক্রান্ত প্রশ্নে এখান থেকে উত্তর নাও।",
+        "jsCode": "return [\n  { json: { \"Question\": \"ডেলিভারি কতদিনে হয়?\", \"Answer\": \"ঢাকার ভেতরে ১-২ দিন, ঢাকার বাইরে ৩-৫ দিন।\", \"Category\": \"Delivery\" } },\n  { json: { \"Question\": \"ডেলিভারি চার্জ কত?\", \"Answer\": \"ঢাকার ভেতরে ৬০ টাকা, ঢাকার বাইরে ১২০ টাকা।\", \"Category\": \"Delivery\" } },\n  { json: { \"Question\": \"কোন পেমেন্ট মেথড আছে?\", \"Answer\": \"bKash, Nagad, রকেট এবং ক্যাশ অন ডেলিভারি।\", \"Category\": \"Payment\" } },\n  { json: { \"Question\": \"ওয়ারেন্টি আছে?\", \"Answer\": \"সব পণ্যে ৬ মাস রিপ্লেসমেন্ট ওয়ারেন্টি আছে।\", \"Category\": \"Warranty\" } },\n  { json: { \"Question\": \"পণ্য ফেরত দেওয়া যাবে?\", \"Answer\": \"ডেলিভারির ৭ দিনের মধ্যে সমস্যা হলে ফেরত বা বদলানো যাবে।\", \"Category\": \"Return\" } },\n  { json: { \"Question\": \"অর্ডার ক্যান্সেল করবো কীভাবে?\", \"Answer\": \"০১৮৩৮০৪০০৫১ নম্বরে কল করুন।\", \"Category\": \"Support\" } },\n  { json: { \"Question\": \"কোথায় অবস্থিত?\", \"Answer\": \"আমরা অনলাইনে সার্ভিস দিই। সরাসরি পিকআপের সুবিধা নেই।\", \"Category\": \"General\" } },\n  { json: { \"Question\": \"কত টাকার উপরে ফ্রি ডেলিভারি?\", \"Answer\": \"৩০০০ টাকার উপরে অর্ডার করলে ঢাকায় ফ্রি ডেলিভারি।\", \"Category\": \"Delivery\" } }\n];"
+      },
+      "id": "get-faq",
+      "name": "Get FAQ",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [660, 450]
+    },
+    {
+      "parameters": {
+        "description": "কনফার্ম হওয়া অর্ডার সেভ করতে এই টুল ব্যবহার করো। শুধুমাত্র স্টক চেক করার পরে এবং কাস্টমারের সব তথ্য (নাম, ফোন, ঠিকানা, পণ্য, পরিমাণ) নেওয়ার পরেই এই টুল কল করো।",
+        "jsCode": "// অর্ডারের তথ্য input থেকে নাও\nconst input = $input.first().json;\n\nconst order = {\n  \"Customer Name\": input[\"Customer Name\"] || input[\"customer_name\"] || \"\",\n  \"Phone\": input[\"Phone\"] || input[\"phone\"] || \"\",\n  \"Address\": input[\"Address\"] || input[\"address\"] || \"\",\n  \"Product Name\": input[\"Product Name\"] || input[\"product_name\"] || \"\",\n  \"Quantity\": input[\"Quantity\"] || input[\"quantity\"] || 1,\n  \"Total Price\": input[\"Total Price\"] || input[\"total_price\"] || 0,\n  \"Order Date\": new Date().toLocaleDateString('bn-BD'),\n  \"Chat ID\": input[\"Chat ID\"] || input[\"chat_id\"] || \"\",\n  \"Status\": input[\"Status\"] || \"Confirmed\",\n  \"Description\": input[\"Description\"] || \"অর্ডার গৃহীত হয়েছে (পণ্য স্টকে আছে)\"\n};\n\n// অর্ডার কনফার্মেশন মেসেজ\nconst confirmMessage = `✅ অর্ডার সফলভাবে সেভ হয়েছে!\n\nনাম: ${order[\"Customer Name\"]}\nপণ্য: ${order[\"Product Name\"]}\nপরিমাণ: ${order[\"Quantity\"]} পিস\nমোট মূল্য: ${order[\"Total Price\"]} টাকা\nতারিখ: ${order[\"Order Date\"]}\nস্ট্যাটাস: ${order[\"Status\"]}`;\n\nreturn [{ json: { ...order, confirmMessage } }];"
+      },
+      "id": "post-orders",
+      "name": "Post Orders",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [830, 450]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "telegram-send",
+      "name": "Telegram Send",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [700, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Inventory": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get FAQ": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Orders": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": ["tech-shop", "telegram", "customer-support", "gemini"],
+  "triggerCount": 1
+}
